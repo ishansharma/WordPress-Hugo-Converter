@@ -10,6 +10,7 @@ front_matter = """
 title: "{}"
 date: {}
 draft: false
+author: Ishan Sharma
 """
 
 front_matter_end = "---"
@@ -138,16 +139,17 @@ if __name__ == "__main__":
     create_or_empty_dir("out/")
 
     for post in posts:
+        post_content = process_content(post.content_encoded.cdata)
+        slug = post.link.cdata.replace("https://ishan.co/", "")
+
         to_write = front_matter.format(post.title.cdata, post.pubDate.cdata)
         to_write += get_categories_and_tags(post.category)
+        to_write += "slug: {}\n".format(slug)
         to_write += front_matter_end
         to_write += "\n"
-        post_content = process_content(post.content_encoded.cdata)
         to_write += markdownify(post_content)
 
         # TODO: Find root cause and do replacement properly
         to_write = to_write.replace("\\_", "_")
 
-        link = post.link.cdata.replace("https://ishan.co/", "")
-
-        write_markdown_to("out/", link, to_write)
+        write_markdown_to("out/", slug, to_write)
