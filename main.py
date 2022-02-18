@@ -132,6 +132,13 @@ def replace_yt_shortcode(matchobj):
     return ' '
 
 
+def get_description(desc):
+    plain_desc = markdownify(desc).replace("\n", " ")
+    plain_desc = ' '.join(plain_desc.split())
+    plain_desc = plain_desc.replace('"', '\\"')
+    return "description: \"" + plain_desc + "\"\n"
+
+
 if __name__ == "__main__":
     parsed = untangle.parse("import.xml")
     posts = parsed.rss.channel.item
@@ -145,6 +152,10 @@ if __name__ == "__main__":
         to_write = front_matter.format(post.title.cdata, post.pubDate.cdata)
         to_write += get_categories_and_tags(post.category)
         to_write += "slug: {}\n".format(slug)
+
+        if post.excerpt_encoded.cdata:
+            to_write += get_description(post.excerpt_encoded.cdata)
+
         to_write += front_matter_end
         to_write += "\n"
         to_write += markdownify(post_content)
