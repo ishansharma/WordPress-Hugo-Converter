@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 import untangle
 from markdownify import markdownify
+from bs4 import BeautifulSoup
 
 front_matter = """
 ---
@@ -77,6 +78,7 @@ def process_content(content):
     content = convert_gists(content)
     content = convert_tweets(content)
     content = convert_youtube(content)
+    content = convert_images(content)
 
     return content
 
@@ -107,6 +109,81 @@ def convert_tweets(content):
     content = re.sub(p, replace_tweet_shortcode, content)
 
     return content
+
+
+def convert_images(content):
+    # Captions Shorttag
+    #
+    # Example caption
+    # [caption id="attachment_129" align="aligncenter" width="566" caption="RBI, Sending Us One Step Backward!"]<img
+    # class="size-full wp-image-129" title="PayPal Changes"
+    # src="http://ishansharma.com/wp-content/uploads/2011/01/PayPal-Changes.png" alt="" width="566" height="456" />[
+    # /caption]
+    #
+    # Output: {{< figure src="screen_time_maps.png#center" width=360 alt="Screenshot showing high Maps Usage" >}}
+    p = re.compile(r'\[caption .+](.*)\[/caption]')
+    # print(re.findall(p, content))
+    content = re.sub(p, replace_caption_shorttag, content)
+    content = replace_images_in_html(content)
+    return content
+
+
+def replace_caption_shorttag(matchobj):
+    out = ' '
+    if matchobj.group(1):
+        soup = BeautifulSoup(matchobj.group(1), 'html.parser')
+        image = soup.img
+        out += get_image_shortcode(image)
+
+    return out
+
+
+def replace_images_in_html(content):
+    soup = BeautifulSoup(content, 'html.parser')
+
+    images = soup.findAll('img')
+    if not len(images):
+        return content
+
+    for image in images:
+        replacement = get_image_shortcode(image)
+        if replacement:
+            image.replace_with(replacement)
+
+    content = str(soup)
+
+    # Ugly hack to get Hugo shortcodes to work
+    content = content.replace('&lt;', '<')
+    content = content.replace('&gt;', '>')
+    return content
+
+
+def get_image_shortcode(tag):
+    out = '{{< figure src='
+
+    source = tag.get('src')
+    if not source:
+        return ''
+    source = source.replace('http://ishan.co', '')
+    source = source.replace('http://ishansharma.com', '')
+    out += '"{}#center"'.format(source)
+
+    width = tag.get('width')
+    if width:
+        out += ' width={}'.format(width)
+
+    height = tag.get('height')
+    if height:
+        out += ' height={}'.format(height)
+
+    alt = tag.get('alt')
+    if alt:
+        alt = alt.replace('"', '\\"')
+        out += ' alt="{}"'.format(alt)
+
+    out += ' >}}'
+
+    return out
 
 
 def replace_tweet_shortcode(matchobj):
